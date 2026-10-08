@@ -1,0 +1,69 @@
+# nvc — Novita Connect
+
+Run Claude Code and Codex on Novita models with one command. nvc never edits your agent config:
+everything is injected into the agent process only, and is gone when it exits.
+
+```sh
+# private repo for now: needs the GitHub CLI logged in (brew install gh && gh auth login)
+gh release download -R Alex-yang00/nvc -p install.sh -O - | sh
+
+nvc login          # paste your Novita API key (or export NOVITA_API_KEY)
+nvc claude
+nvc codex
+```
+
+Installs to `~/.local/bin` (override with `NVC_INSTALL_DIR`), verifies SHA256SUMS. Pin a version with `NVC_VERSION=0.1.0`.
+
+## Commands
+
+```
+nvc login                         save your Novita API key to ~/.config/nvc/config.json (0600)
+nvc claude   [--model M] [args…]  Claude Code
+nvc codex    [--model M] [args…]  Codex
+nvc models                        live model list with prices
+nvc doctor                        check key, connectivity, installed agents
+nvc <agent> --print-env           show what would be injected (key masked), don't launch
+```
+
+`--model` / `--print-env` go right after the agent name; everything else is passed to the agent unchanged.
+
+## Default lineup
+
+| Claude Code tier | Model |
+|---|---|
+| Opus (main) | `moonshotai/kimi-k3` |
+| Sonnet | `zai-org/glm-5.3` |
+| Haiku (background tasks) | `deepseek/deepseek-v4.1-flash` |
+
+Codex defaults to `zai-org/glm-5.3`. `nvc claude --model <id>` sets the main model; `/model` inside
+Claude Code switches between the three tiers.
+
+## Your config stays yours
+
+- **Claude Code**: settings go in via `--settings` (outranks `~/.claude/settings.json`, which is not
+  modified). The key is read by `apiKeyHelper` from the process env, so it never appears in `ps`.
+- **Codex**: provider goes in via `-c` overrides; `~/.codex/config.toml` is not modified.
+- Both agents save `/model` picks to your user config on their own. nvc snapshots those keys
+  (`model` in `~/.claude/settings.json`; `model`, `model_reasoning_effort` in `~/.codex/config.toml`)
+  and puts them back when the agent exits, so plain `claude` / `codex` keep working as before.
+  Nothing else in those files is touched.
+
+## Build
+
+```sh
+scripts/build.sh 0.1.0      # vet + test + 4 platform tarballs + SHA256SUMS in dist/
+scripts/smoke/run.sh claude # headless end-to-end task (uses your NOVITA_API_KEY)
+scripts/smoke/run.sh codex
+```
+
+## Known limitations (0.1)
+
+- **Web search is disabled** in both agents. It's an Anthropic/OpenAI server-side tool; Novita doesn't
+  run it and the model would silently make up results. Claude Code falls back to WebFetch.
+- **Codex `/model` lists OpenAI models.** Picking one inside an nvc session fails against Novita.
+  Use `nvc codex --model <id>` instead.
+- Codex prints `Model metadata for … not found`; it uses fallback metadata and works.
+- Codex's own sandbox needs unprivileged user namespaces. On Ubuntu 24.04 the default AppArmor policy
+  blocks them — this affects Codex with or without nvc.
+- If nvc itself is killed with `SIGKILL` mid-session, the `/model` restore above can't run.
+- macOS and Linux only.
