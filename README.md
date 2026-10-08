@@ -4,15 +4,14 @@ Run Claude Code and Codex on Novita models with one command. nvc never edits you
 everything is injected into the agent process only, and is gone when it exits.
 
 ```sh
-# private repo for now: needs the GitHub CLI logged in (brew install gh && gh auth login)
-gh release download -R Alex-yang00/nvc -p install.sh -O - | sh
+curl -fsSL https://github.com/Alex-yang00/nvc/releases/latest/download/install.sh | sh
 
 nvc login          # paste your Novita API key (or export NOVITA_API_KEY)
 nvc claude
 nvc codex
 ```
 
-Installs to `~/.local/bin` (override with `NVC_INSTALL_DIR`), verifies SHA256SUMS. Pin a version with `NVC_VERSION=0.1.0`.
+Installs to `~/.local/bin` (override with `NVC_INSTALL_DIR`), verifies SHA256SUMS. Pin a version with `NVC_VERSION=0.1.1`.
 
 ## Commands
 
