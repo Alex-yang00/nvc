@@ -11,11 +11,15 @@ nvc claude
 nvc codex
 ```
 
-Installs to `~/.local/bin` (override with `NVC_INSTALL_DIR`), verifies SHA256SUMS. Pin a version with `NVC_VERSION=0.1.1`.
+Installs to `~/.local/bin` (override with `NVC_INSTALL_DIR`), verifies SHA256SUMS. Pin a version with `NVC_VERSION=0.2.0`.
 
 ## Commands
 
+Run `nvc` with no arguments in a terminal for an interactive menu (Claude Code / Codex / Login / Quit).
+Set `NVC_NO_ANIMATION=1` or `NO_COLOR=1` for a static version.
+
 ```
+nvc                               interactive menu
 nvc login                         save your Novita API key to ~/.config/nvc/config.json (0600)
 nvc claude   [--model M] [args…]  Claude Code
 nvc codex    [--model M] [args…]  Codex
@@ -66,3 +70,7 @@ scripts/smoke/run.sh codex
   blocks them — this affects Codex with or without nvc.
 - If nvc itself is killed with `SIGKILL` mid-session, the `/model` restore above can't run.
 - macOS and Linux only.
+
+## License
+
+MIT

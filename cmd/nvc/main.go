@@ -14,6 +14,7 @@ import (
 	"github.com/novitalabs/nvc/internal/catalog"
 	"github.com/novitalabs/nvc/internal/harness"
 	"github.com/novitalabs/nvc/internal/lineup"
+	"github.com/novitalabs/nvc/internal/tui"
 )
 
 var version = "0.0.0-dev" // set by -ldflags "-X main.version=..."
@@ -27,6 +28,7 @@ func baseURL() string {
 
 const usage = `nvc — run coding agents on Novita models, without touching your config
 
+  nvc                               interactive menu (in a terminal)
   nvc login                         save your Novita API key
   nvc claude   [--model M] [args…]  Claude Code
   nvc codex    [--model M] [args…]  Codex
@@ -79,6 +81,9 @@ func run(args []string) error {
 		return err
 	}
 	if len(args) == 0 {
+		if o.model == "" && !o.printEnv && isTerminal(os.Stdin) && isTerminal(os.Stdout) {
+			return menu()
+		}
 		fmt.Print(usage)
 		return nil
 	}
@@ -214,4 +219,55 @@ func orEmpty(err error) string {
 		return ""
 	}
 	return "— " + err.Error()
+}
+
+func isTerminal(f *os.File) bool {
+	st, err := f.Stat()
+	return err == nil && st.Mode()&os.ModeCharDevice != 0
+}
+
+func shortID(id string) string {
+	if _, after, ok := strings.Cut(id, "/"); ok {
+		return after
+	}
+	return id
+}
+
+// menu runs the interactive TUI, then launches whatever the user picked.
+func menu() error {
+	l := lineup.Default
+	details := map[string]string{
+		"claude": shortID(l.Opus) + " · " + shortID(l.Sonnet) + " · " + shortID(l.Haiku),
+		"codex":  shortID(l.Default),
+	}
+	var agents []tui.Agent
+	for _, h := range harness.All() {
+		agents = append(agents, tui.Agent{
+			Name: h.Name(), Title: h.Title(), Detail: details[h.Name()],
+			Installed: harness.Detect(h) != "", InstallHint: h.InstallHint(),
+		})
+	}
+	savePath := filepath.Join(auth.ConfigDir(), "config.json")
+	if home, err := os.UserHomeDir(); err == nil && strings.HasPrefix(savePath, home+"/") {
+		savePath = "~" + savePath[len(home):]
+	}
+	res, err := tui.Run(tui.Options{
+		Version: version,
+		Agents:  agents,
+		Key: func() (string, bool) {
+			k, err := auth.Key()
+			return auth.Mask(k), err == nil
+		},
+		Validate: func(ctx context.Context, key string) error {
+			return auth.Validate(ctx, baseURL(), key, lineup.Default.Haiku)
+		},
+		Save:     auth.Save,
+		SavePath: savePath,
+		NoMotion: os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" || os.Getenv("NVC_NO_ANIMATION") != "",
+	})
+	if err != nil || res.Launch == "" {
+		return err
+	}
+	h, _ := harness.Get(res.Launch)
+	return launch(h, opts{}, nil)
 }
