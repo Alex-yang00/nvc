@@ -50,6 +50,6 @@ func (Codex) Plan(c Context, args []string) (Plan, error) {
 		Secrets: []string{c.Key},
 		Summary: "Codex → Novita · model=" + model,
 		// `/model` writes model + model_reasoning_effort to config.toml (root or [profiles.x]).
-		Guards: []guard.Guard{&guard.TOMLKeys{Path: homeFile("CODEX_HOME", ".codex", "config.toml"), Keys: []string{"model", "model_reasoning_effort"}}},
+		Guards: []guard.Guard{&guard.TOMLKeys{Path: CodexConfigPath(), Keys: []string{"model", "model_reasoning_effort"}}},
 	}, nil
 }

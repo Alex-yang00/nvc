@@ -81,6 +81,6 @@ func (Claude) Plan(c Context, args []string) (Plan, error) {
 		Secrets: []string{c.Key},
 		Summary: fmt.Sprintf("Claude Code → Novita · opus=%s sonnet=%s haiku=%s", opus.ID, sonnet.ID, haiku.ID),
 		// `/model` → "set as default" writes "model" to the user settings file.
-		Guards: []guard.Guard{&guard.JSONKeys{Path: homeFile("CLAUDE_CONFIG_DIR", ".claude", "settings.json"), Keys: []string{"model"}}},
+		Guards: []guard.Guard{&guard.JSONKeys{Path: ClaudeSettingsPath(), Keys: []string{"model"}}},
 	}, nil
 }

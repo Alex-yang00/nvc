@@ -41,4 +41,4 @@ install -m 0755 "$tmp/nvc" "$DIR/nvc"
 echo "✓ installed $DIR/nvc ($("$DIR/nvc" version))"
 
 case ":$PATH:" in *":$DIR:"*) ;; *) echo "  add to PATH: export PATH=\"$DIR:\$PATH\"" ;; esac
-echo "  next: nvc login && nvc claude"
+echo "  next: nvc   (menu)  ·  nvc uninstall to remove"

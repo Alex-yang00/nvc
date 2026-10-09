@@ -30,14 +30,15 @@ func ConfigDir() string {
 	return filepath.Join(home, ".config", "nvc")
 }
 
-func configPath() string { return filepath.Join(ConfigDir(), "config.json") }
+// ConfigPath is where `nvc login` stores the key.
+func ConfigPath() string { return filepath.Join(ConfigDir(), "config.json") }
 
 // Key returns the API key: env var first, then config file.
 func Key() (string, error) {
 	if k := strings.TrimSpace(os.Getenv(EnvKey)); k != "" {
 		return k, nil
 	}
-	b, err := os.ReadFile(configPath())
+	b, err := os.ReadFile(ConfigPath())
 	if err != nil {
 		return "", ErrNoKey
 	}
@@ -53,7 +54,7 @@ func Save(key string) error {
 		return err
 	}
 	b, _ := json.MarshalIndent(config{APIKey: key}, "", "  ")
-	return os.WriteFile(configPath(), b, 0o600)
+	return os.WriteFile(ConfigPath(), b, 0o600)
 }
 
 // Validate makes a 1-token chat call. /v1/models is public and accepts any key, so it can't be used.

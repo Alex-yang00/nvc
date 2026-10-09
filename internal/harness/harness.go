@@ -127,6 +127,10 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
+// ClaudeSettingsPath / CodexConfigPath are the user config files the agents write to on their own.
+func ClaudeSettingsPath() string { return homeFile("CLAUDE_CONFIG_DIR", ".claude", "settings.json") }
+func CodexConfigPath() string    { return homeFile("CODEX_HOME", ".codex", "config.toml") }
+
 // homeFile resolves <$envDir or ~/defaultDir>/name.
 func homeFile(envDir, defaultDir, name string) string {
 	if d := os.Getenv(envDir); d != "" {

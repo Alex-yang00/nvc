@@ -34,20 +34,24 @@ func readOptional(path string) ([]byte, bool, error) {
 	return b, err == nil, err
 }
 
+// TmpSuffix marks the scratch file used for atomic restores (path+TmpSuffix).
+const TmpSuffix = ".nvc-tmp"
+
 // writeKeepMode replaces path atomically, preserving its permission bits.
 func writeKeepMode(path string, data []byte) error {
 	mode := fs.FileMode(0o600)
 	if st, err := os.Stat(path); err == nil {
 		mode = st.Mode().Perm()
 	}
-	tmp := path + ".nvc-tmp"
+	tmp := path + TmpSuffix
 	if err := os.WriteFile(tmp, data, mode); err != nil {
 		return err
 	}
 	return os.Rename(tmp, path)
 }
 
-func tildify(path string) string {
+// Tildify shortens $HOME to ~ for display.
+func Tildify(path string) string {
 	if home, err := os.UserHomeDir(); err == nil && strings.HasPrefix(path, home+string(os.PathSeparator)) {
 		return "~" + path[len(home):]
 	}
@@ -65,7 +69,7 @@ type JSONKeys struct {
 }
 
 func (g *JSONKeys) Describe() string {
-	return strings.Join(g.Keys, ", ") + " in " + tildify(g.Path)
+	return strings.Join(g.Keys, ", ") + " in " + Tildify(g.Path)
 }
 
 func (g *JSONKeys) Snapshot() error {
@@ -217,7 +221,7 @@ type TOMLKeys struct {
 }
 
 func (g *TOMLKeys) Describe() string {
-	return strings.Join(g.Keys, ", ") + " in " + tildify(g.Path)
+	return strings.Join(g.Keys, ", ") + " in " + Tildify(g.Path)
 }
 
 var (

@@ -11,7 +11,7 @@ nvc claude
 nvc codex
 ```
 
-Installs to `~/.local/bin` (override with `NVC_INSTALL_DIR`), verifies SHA256SUMS. Pin a version with `NVC_VERSION=0.2.0`.
+Installs to `~/.local/bin` (override with `NVC_INSTALL_DIR`), verifies SHA256SUMS. Pin a version with `NVC_VERSION=0.2.1`. Upgrade = run the same command again.
 
 ## Commands
 
@@ -25,6 +25,7 @@ nvc claude   [--model M] [args…]  Claude Code
 nvc codex    [--model M] [args…]  Codex
 nvc models                        live model list with prices
 nvc doctor                        check key, connectivity, installed agents
+nvc uninstall [--yes]             remove nvc and its saved key (asks first)
 nvc <agent> --print-env           show what would be injected (key masked), don't launch
 ```
 
@@ -51,15 +52,29 @@ Claude Code switches between the three tiers.
   and puts them back when the agent exits, so plain `claude` / `codex` keep working as before.
   Nothing else in those files is touched.
 
+## Uninstall
+
+```sh
+nvc uninstall
+```
+
+Removes only what nvc added: the `nvc` binary and `~/.config/nvc/` (saved key, model cache).
+Your `~/.claude/settings.json`, `~/.codex/config.toml`, shell profile and session history are not
+touched — nvc never wrote anything into them that would need undoing. If the binary is already gone:
+`rm -rf ~/.config/nvc`.
+
+Codex conversations started through nvc can't be continued with plain `codex resume` afterwards
+(Codex starts a new conversation; the history files stay).
+
 ## Build
 
 ```sh
-scripts/build.sh 0.1.0      # vet + test + 4 platform tarballs + SHA256SUMS in dist/
+scripts/build.sh 0.2.1      # vet + test + 4 platform tarballs + SHA256SUMS in dist/
 scripts/smoke/run.sh claude # headless end-to-end task (uses your NOVITA_API_KEY)
 scripts/smoke/run.sh codex
 ```
 
-## Known limitations (0.1)
+## Known limitations
 
 - **Web search is disabled** in both agents. It's an Anthropic/OpenAI server-side tool; Novita doesn't
   run it and the model would silently make up results. Claude Code falls back to WebFetch.

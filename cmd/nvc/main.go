@@ -6,15 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
+	"github.com/charmbracelet/x/term"
+
 	"github.com/novitalabs/nvc/internal/auth"
 	"github.com/novitalabs/nvc/internal/catalog"
+	"github.com/novitalabs/nvc/internal/guard"
 	"github.com/novitalabs/nvc/internal/harness"
 	"github.com/novitalabs/nvc/internal/lineup"
 	"github.com/novitalabs/nvc/internal/tui"
+	"github.com/novitalabs/nvc/internal/uninstall"
 )
 
 var version = "0.0.0-dev" // set by -ldflags "-X main.version=..."
@@ -34,6 +37,7 @@ const usage = `nvc — run coding agents on Novita models, without touching your
   nvc codex    [--model M] [args…]  Codex
   nvc models                        live model list with prices
   nvc doctor                        check key, connectivity, installed agents
+  nvc uninstall [--yes]             remove nvc and its saved key; agent configs are not touched
   nvc version
 
   --print-env   print what would be injected instead of launching
@@ -101,6 +105,8 @@ func run(args []string) error {
 		return models()
 	case "doctor":
 		return doctor()
+	case "uninstall":
+		return uninstallCmd(rest)
 	}
 	h, ok := harness.Get(cmd)
 	if !ok {
@@ -162,7 +168,7 @@ func login() error {
 	if err := auth.Save(key); err != nil {
 		return err
 	}
-	fmt.Fprintln(os.Stderr, "✓ key saved to", filepath.Join(auth.ConfigDir(), "config.json"))
+	fmt.Fprintln(os.Stderr, "✓ key saved to", auth.ConfigPath())
 	return nil
 }
 
@@ -221,10 +227,8 @@ func orEmpty(err error) string {
 	return "— " + err.Error()
 }
 
-func isTerminal(f *os.File) bool {
-	st, err := f.Stat()
-	return err == nil && st.Mode()&os.ModeCharDevice != 0
-}
+// isTerminal is a real isatty check (a char-device test would also accept /dev/null).
+func isTerminal(f *os.File) bool { return term.IsTerminal(f.Fd()) }
 
 func shortID(id string) string {
 	if _, after, ok := strings.Cut(id, "/"); ok {
@@ -247,10 +251,7 @@ func menu() error {
 			Installed: harness.Detect(h) != "", InstallHint: h.InstallHint(),
 		})
 	}
-	savePath := filepath.Join(auth.ConfigDir(), "config.json")
-	if home, err := os.UserHomeDir(); err == nil && strings.HasPrefix(savePath, home+"/") {
-		savePath = "~" + savePath[len(home):]
-	}
+	savePath := guard.Tildify(auth.ConfigPath())
 	res, err := tui.Run(tui.Options{
 		Version: version,
 		Agents:  agents,
@@ -270,4 +271,67 @@ func menu() error {
 	}
 	h, _ := harness.Get(res.Launch)
 	return launch(h, opts{}, nil)
+}
+
+func uninstallCmd(args []string) error {
+	yes := false
+	for _, a := range args {
+		switch a {
+		case "-y", "--yes":
+			yes = true
+		default:
+			return fmt.Errorf("unknown flag %q (usage: nvc uninstall [--yes])", a)
+		}
+	}
+	items := uninstall.Targets(uninstall.Paths{
+		Binary:      uninstall.SelfBinary(),
+		ConfigDir:   auth.ConfigDir(),
+		ConfigFile:  auth.ConfigPath(),
+		AgentConfig: []string{harness.ClaudeSettingsPath(), harness.CodexConfigPath()},
+	})
+	if len(items) == 0 {
+		fmt.Println("Nothing to remove: nvc is not installed here.")
+		return nil
+	}
+
+	fmt.Println("This removes:")
+	for _, it := range items {
+		fmt.Printf("  %-44s %s\n", guard.Tildify(it.Path), it.What)
+	}
+	fmt.Println("\nNot touched:")
+	fmt.Printf("  %-44s your Claude Code config\n", guard.Tildify(harness.ClaudeSettingsPath()))
+	fmt.Printf("  %-44s your Codex config\n", guard.Tildify(harness.CodexConfigPath()))
+	fmt.Println("  claude / codex themselves, shell profile, session history")
+
+	if !yes {
+		if !isTerminal(os.Stdin) {
+			return errors.New("not a terminal: re-run with --yes to confirm")
+		}
+		fmt.Print("\nProceed? [y/N] ")
+		line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		if a := strings.ToLower(strings.TrimSpace(line)); a != "y" && a != "yes" {
+			fmt.Println("Aborted, nothing removed.")
+			return nil
+		}
+	}
+
+	kept, errs := uninstall.Remove(items)
+	for _, e := range errs {
+		fmt.Fprintln(os.Stderr, "✗", e)
+		if errors.Is(e, os.ErrPermission) {
+			fmt.Fprintln(os.Stderr, "  (no permission — re-run with sudo, or remove it by hand)")
+		}
+	}
+	for _, k := range kept {
+		fmt.Printf("· kept %s (contains files nvc didn't create)\n", guard.Tildify(k))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%d item(s) could not be removed", len(errs))
+	}
+	fmt.Println("\n✓ nvc removed. claude / codex work exactly as they did before nvc.")
+	if os.Getenv(auth.EnvKey) != "" {
+		fmt.Println("  NOVITA_API_KEY is still set in your environment (nvc never sets it) — remove it from your shell profile if you added it.")
+	}
+	fmt.Println("  Codex conversations started through nvc can't be resumed with plain `codex resume` (it starts a new one); history files are kept.")
+	return nil
 }

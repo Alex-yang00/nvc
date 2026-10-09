@@ -67,7 +67,8 @@ func (c *Catalog) Get(id string) (Model, bool) {
 	return Model{}, false
 }
 
-func cachePath(dir string) string { return filepath.Join(dir, "models.json") }
+// CachePath is the model list cache inside dir; CachePath(dir)+".tmp" may exist briefly while writing.
+func CachePath(dir string) string { return filepath.Join(dir, "models.json") }
 
 func Fetch(ctx context.Context, baseURL string) (*Catalog, error) {
 	req, _ := http.NewRequestWithContext(ctx, "GET", baseURL+"/openai/v1/models", nil)
@@ -89,14 +90,14 @@ func save(dir string, c *Catalog) {
 		return
 	}
 	b, _ := json.Marshal(c)
-	tmp := cachePath(dir) + ".tmp"
+	tmp := CachePath(dir) + ".tmp"
 	if os.WriteFile(tmp, b, 0o600) == nil {
-		os.Rename(tmp, cachePath(dir))
+		os.Rename(tmp, CachePath(dir))
 	}
 }
 
 func loadCache(dir string) *Catalog {
-	b, err := os.ReadFile(cachePath(dir))
+	b, err := os.ReadFile(CachePath(dir))
 	if err != nil {
 		return nil
 	}
